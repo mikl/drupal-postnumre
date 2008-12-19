@@ -18,3 +18,4 @@ The main reason for creating this module is a very basic need for having
 valid postal codes in the database and a user friendly interface for them,
 so the primary feature is an AHAH-callback and a validation function that
 can be used by other modules.
+

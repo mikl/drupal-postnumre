@@ -7,8 +7,11 @@ define('POSTNUMRE_GREENLAND', 2);
 define('POSTNUMRE_FAROE', 3);
 
 /**
- * @file
- * Module for ordering of cleaning jobs.
+ * @file postnumre.module
+ * Helper module for Danish postal codes.
+ *
+ * Providing a few functions and an AHAH callback for dealing with
+ * the 1400+ postal codes used in the Kingdom of Denmark.
  */
 
 /**
