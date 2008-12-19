@@ -15,30 +15,6 @@ define('POSTNUMRE_FAROE', 3);
  */
 
 /**
- * Loads the postal codes from the CSV-file.
- *
- * @return array
- *    A neat nested array of postal codes for the whole Kingdom of Denmark.
- */
-function _postnumre_load_csv() {
-  $file = fopen(drupal_get_path('module', 'postnumre') . '/postnumre.csv', 'r');
-
-  $headers = fgetcsv($file, 100);
-  $rows = array();
-
-  while ($row = fgetcsv($file, 100)) {
-    $code = array();
-    foreach (range(1, 5) as $index) {
-      if (!empty($row[$index])) {
-        $code[$headers[$index]] = $row[$index];
-      }
-    }
-    $rows[$row[0]] = $code;
-  }
-  return $rows;
-}
-
-/**
  * Look up a postal code.
  *
  * @param mixed $input
@@ -57,3 +33,4 @@ function postnumre_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) 
   }
   return FALSE;
 }
+

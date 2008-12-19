@@ -82,3 +82,27 @@ function postnumre_uninstall() {
   drupal_uninstall_schema('postnumre');
 }
 
+/**
+ * Loads the postal codes from the CSV-file.
+ *
+ * @return array
+ *    A neat nested array of postal codes for the whole Kingdom of Denmark.
+ */
+function _postnumre_load_csv() {
+  $file = fopen(drupal_get_path('module', 'postnumre') . '/postnumre.csv', 'r');
+
+  $headers = fgetcsv($file, 100);
+  $rows = array();
+
+  while ($row = fgetcsv($file, 100)) {
+    $code = array();
+    foreach (range(1, 5) as $index) {
+      if (!empty($row[$index])) {
+        $code[$headers[$index]] = $row[$index];
+      }
+    }
+    $rows[$row[0]] = $code;
+  }
+  return $rows;
+}
+
