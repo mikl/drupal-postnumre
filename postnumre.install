@@ -1,0 +1,84 @@
+<?php 
+// $Id$
+
+/**
+ * @file
+ * Scaffolding example module's install and uninstall code.
+ */
+
+
+/**
+ * Implementation of hook_install().
+ */
+function postnumre_install() {
+  drupal_install_schema('postnumre');
+
+  $postnumre = _postnumre_load_csv();
+  foreach ($postnumre as $number => $data) {
+    $record = array(
+      'code' => $number,
+      'city' => $data['Bynavn'],
+      'street' => $data['Gade'],
+      'company' => $data['Firma'],
+      'country' => $data['Land']
+    );
+    drupal_write_record('postnumre', $record);
+  }
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function postnumre_schema() {
+  $schema = array();
+  $schema['postnumre'] = array(
+    'description' => t('Danish postal codes.'),
+    'fields' => array(
+      'code' => array(
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'city' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'street' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'company' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'country' => array(
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('code'),
+    'indexes' => array(
+      'city' => array('city'),
+      'country' => array('country'),
+    ),
+  );
+  return $schema;
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function postnumre_uninstall() {
+  drupal_uninstall_schema('postnumre');
+}
+

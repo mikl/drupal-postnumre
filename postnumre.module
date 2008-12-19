@@ -1,0 +1,56 @@
+<?php
+// $Id$
+
+// Codes used for countries in the original data.
+define('POSTNUMRE_DENMARK', 1);
+define('POSTNUMRE_GREENLAND', 2);
+define('POSTNUMRE_FAROE', 3);
+
+/**
+ * @file
+ * Module for ordering of cleaning jobs.
+ */
+
+/**
+ * Loads the postal codes from the CSV-file.
+ *
+ * @return array
+ *    A neat nested array of postal codes for the whole Kingdom of Denmark.
+ */
+function _postnumre_load_csv() {
+  $file = fopen(drupal_get_path('module', 'postnumre') . '/postnumre.csv', 'r');
+
+  $headers = fgetcsv($file, 100);
+  $rows = array();
+
+  while ($row = fgetcsv($file, 100)) {
+    $code = array();
+    foreach (range(1, 5) as $index) {
+      if (!empty($row[$index])) {
+        $code[$headers[$index]] = $row[$index];
+      }
+    }
+    $rows[$row[0]] = $code;
+  }
+  return $rows;
+}
+
+/**
+ * Look up a postal code.
+ *
+ * @param mixed $input
+ *    Input, typically string or int.
+ * @param int $restrict_country
+ *    Restrict the search to a single country. Default is Danish postal codes only.
+ * @return mixed object|bool
+ *    If a code was found, the postal code object, if not boolean FALSE.
+ */
+function postnumre_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) {
+  if (is_numeric($input)) {
+    $query = db_query("SELECT * FROM {postnumre} WHERE CODE = %d LIMIT 1", $input);
+    if ($query) {
+      return db_fetch_object($query);
+    }
+  }
+  return FALSE;
+}
