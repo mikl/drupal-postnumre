@@ -15,6 +15,46 @@ define('POSTNUMRE_FAROE', 3);
  */
 
 /**
+ * Implementation of hook_menu().
+ */
+function postnumre_menu() {
+  $items = array();
+  $items['postnumre/js'] = array(
+    'page callback' = 'postnumre_search_js',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+/**
+ * AHAH page callback for postal code search.
+ */
+function postnumre_search_js() {
+  $suggestions = array();
+  $input = $_POST['postnummer_search_data'];
+
+  if (is_numeric($input) && (strlen($input) > 2) && (strlen($input) < 5) {
+    $query = db_query("SELECT * FROM {postnumre}
+WHERE code LIKE '%d%%' LIMIT 10");
+  }
+  elseif (strlen($input) > 2) {
+    // Search by name
+  }
+  else {
+    // Hybrid search
+  }
+
+  if (isset($query)) {
+    while ($row = db_fetch_array($query)) {
+      $suggestions[] = $row;
+    }
+  }
+
+  drupal_json($suggestions);
+}
+
+/**
  * Look up a postal code.
  *
  * @param mixed $input
