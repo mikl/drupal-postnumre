@@ -20,7 +20,7 @@ define('POSTNUMRE_FAROE', 3);
 function postnumre_menu() {
   $items = array();
   $items['postnumre/js'] = array(
-    'page callback' = 'postnumre_search_js',
+    'page callback' => 'postnumre_search_js',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
   );
@@ -28,34 +28,64 @@ function postnumre_menu() {
 }
 
 /**
- * AHAH page callback for postal code search.
+ * Autocomplete page callback for postal code search.
+ *
+ * @param string $input
+ *    The search string
  */
-function postnumre_search_js() {
-  $suggestions = array();
-  $input = $_POST['postnummer_search_data'];
+function postnumre_search_js($input) {
+  $matches = array();
 
-  if (is_numeric($input) && (strlen($input) > 2) && (strlen($input) < 5) {
-    $query = db_query("SELECT * FROM {postnumre}
-WHERE code LIKE '%d%%' LIMIT 10");
+  foreach(postnumre_freeform_search($input) as $match) {
+    $label = $match['code'] . ' ' . $match['city'];
+    $matches[$label] = $label;
   }
-  elseif (strlen($input) > 2) {
-    // Search by name
-  }
-  else {
-    // Hybrid search
-  }
-
-  if (isset($query)) {
-    while ($row = db_fetch_array($query)) {
-      $suggestions[] = $row;
-    }
-  }
-
-  drupal_json($suggestions);
+  drupal_json($matches);
 }
 
 /**
- * Look up a postal code.
+ * Freeform search by code or city name.
+ *
+ * @param string $keys
+ *    The string to search for.
+ * @param mixed $countries
+ *    Array or single value of the allowed countries. Will use default
+ *    value if not specified.
+ * @param integer $limit
+ *    The maximum number of matches to return.
+ * @return array
+ *    The search results, possibly an empty array.
+ */
+function postnumre_freeform_search($keys, $countries=NULL, $limit=10) {
+  $where = _postnumre_countries_where($countries);
+  $results = array();
+
+  if (is_numeric($keys) && (strlen($keys) > 1) && (strlen($keys) < 5)) {
+    $query = db_query("SELECT * FROM {postnumre} $where code LIKE '%d%%'
+      LIMIT %d", $keys, $limit);
+  }
+  elseif (strlen($keys) > 2) {
+    $groups = array(); // For RegEx matches.
+    if (preg_match('/^(\d{3,4})\s*(\w*)/', trim($keys), $groups)) {
+      $code = $groups[1];
+      $city = $groups[2];
+      $query = db_query("SELECT * FROM {postnumre} $where code LIKE
+        '%d%%' LIMIT %d", $city, $limit);
+    }
+    else {
+      $query = db_query("SELECT * FROM {postnumre} $where LOWER(city)
+        LIKE '%s%%' LIMIT %d", $keys, $limit);
+    }
+  }
+
+  while($row = db_fetch_array($query)) {
+    $results[] = $row;
+  }
+  return $results;
+}
+
+/**
+ * Validate up a postal code.
  *
  * @param mixed $input
  *    Input, typically string or int.
@@ -72,5 +102,66 @@ function postnumre_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) 
     }
   }
   return FALSE;
+}
+
+/**
+ * Generate a SQL WHERE clause for filtering countries
+ *
+ * Looks on the incoming countries parameters, if set, and otherwise
+ * the default setting for countries to include and generates the SQL
+ * WHERE clause to be used in search queries.
+ *
+ * @param mixed $countries
+ *    Array or single integer of allowed contries. If empty or invalid,
+ *    default setting will be used.
+ * @param boolean $append_and
+ *    If "AND" should be appended to the end of the WHERE clause.
+ *    Default TRUE.
+ * @return string
+ *    SQL WHERE clause ready to be used.
+ */
+function _postnumre_countries_where($countries=NULL, $append_and=TRUE) {
+  $default_countries = variable_get('postnumre_countries', array(POSTNUMRE_DENMARK));
+  $where = '';
+
+  // Remove values not in the valid range.
+  if (is_array($countries)) {
+    foreach ($countries as $value) {
+      if (!(($value > 0) && ($value < 4))) {
+        unset($countries[$value]);
+      }
+    }
+  }
+  // For a single number, if its in the valid range, stick it in an array
+  elseif (is_numeric($countries) && !(($countries > 0) && ($countries < 4))) {
+    $countries = array(intval($countries));
+  }
+  // If no valid value was found, set $countries to an empty array, so
+  // default values will be used.
+  else {
+    $countries = array();
+  }
+
+  // If $countries is empty after our validation above, use the defaults.
+  if (empty($countries)) {
+    $countries = $default_countries;
+  }
+
+  if (count($countries) == 1) {
+    $where = 'WHERE country = ' . $countries[0] . ' ';
+  }
+  elseif (count($countries) > 1) {
+    $where = 'WHERE country IN (' . implode(',', $countries) . ') ';
+  }
+  // If neither of the above scenarios is true, something is wrong, and
+  // we'll just return the a 'WHERE' so we don't break the SQL.
+  else {
+    return 'WHERE ';
+  }
+
+  if ($append_and) {
+    $where .= 'AND ';
+  }
+  return $where;
 }
 
