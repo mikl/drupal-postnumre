@@ -35,34 +35,38 @@ function postnumre_schema() {
     'description' => t('Danish postal codes.'),
     'fields' => array(
       'code' => array(
-        'type' => 'int',
-        'size' => 'small',
-        'unsigned' => TRUE,
+        'type' => 'char',
+        'length' => '4',
         'not null' => TRUE,
+        'description' => 'Postal code, stored as text to facilitate partial matching.'
       ),
       'city' => array(
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
         'default' => '',
+        'description' => 'Name of the associated city',
       ),
       'street' => array(
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
         'default' => '',
+        'description' => 'Street name, if applicable',
       ),
       'company' => array(
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
         'default' => '',
+        'description' => 'Company name, if applicable',
       ),
       'country' => array(
         'type' => 'int',
         'size' => 'small',
         'unsigned' => TRUE,
         'not null' => TRUE,
+        'description' => 'Country (unfortunately) identified by integer)',
       ),
     ),
     'primary key' => array('code'),
