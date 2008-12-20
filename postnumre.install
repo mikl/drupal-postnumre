@@ -107,6 +107,8 @@ function _postnumre_load_csv() {
     }
     $rows[$row[0]] = $code;
   }
+
+  fclose($file);
   return $rows;
 }
 
