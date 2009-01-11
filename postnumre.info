@@ -1,4 +1,4 @@
 ; $Id$
-name = Danske postnumre
+name = Danish postalcodes
 description = A small module for validation and lookup of Danish postal codes.
 core = 6.x
