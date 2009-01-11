@@ -19,7 +19,7 @@ define('POSTNUMRE_FAROE', 3);
  */
 function postnummer_api_menu() {
   $items = array();
-  $items['postnumre/js'] = array(
+  $items['postnummer/js'] = array(
     'page callback' => 'postnummer_api_search_js',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
