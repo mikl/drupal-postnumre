@@ -1,0 +1,7 @@
+; $Id$
+name = Danish postal code field
+description = CCK field for Danish postal codes.
+dependencies[] = content
+dependencies[] = postnummer_api
+core = 6.x
+

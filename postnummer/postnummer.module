@@ -1,0 +1,362 @@
+<?php // $Id$
+
+/**
+ * @file postnummer.module
+ * Defines a CCK field and widget for Danish postal codes.
+ */
+
+/**
+ * Implementation of hook_field_info().
+ */
+function postnummer_field_info() {
+  return array(
+    'postnummer' => array(
+      'label' => t('Danish postal code'),
+      'description' => t('Store Danish postal codes in the database.'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_field_settings().
+ */
+function postnummer_field_settings($op, $field) {
+  switch ($op) {
+    case 'form':
+      $form = array();
+      $country_options = array(
+        POSTNUMRE_DENMARK => t('Denmark'),
+        POSTNUMRE_GREENLAND => t('Greenland'),
+        POSTNUMRE_FAROE => t('Faroe Islands'),
+      );
+      $form['allowed_countries'] = array(
+        '#type' => 'checkboxes',
+        '#title' => t('Allowed countries'),
+        '#default_value' => is_array($field['allowed_countries']) ? $field['allowed_countries'] : array(1),
+        '#options' => $country_options,
+        '#description' => t('Select the countries that this field will accept (and suggest) postal codes from'),
+      );
+      return $form;
+
+    case 'save':
+      return array('allowed_countries');
+
+    case 'database columns':
+      $columns = array();
+      $columns['code'] = array(
+        'type' => 'char',
+        'length' => '4',
+        'not null' => FALSE,
+        'sortable' => TRUE
+      );
+      // Normalise the city name, so we won't have to join the
+      // postnumre table on every node_load.
+      $columns['city'] = array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+        'sortable' => TRUE
+      );
+      return $columns;
+
+    case 'views data':
+      // 'views data' op copied verbatim from text.module
+      // TODO: Figure out what's going on here.
+      $allowed_values = content_allowed_values($field);
+      if (count($allowed_values)) {
+        $data = content_views_field_views_data($field);
+        $db_info = content_database_info($field);
+        $table_alias = content_views_tablename($field);
+
+        // Filter: Add a 'many to one' filter.
+        $copy = $data[$table_alias][$field['field_name'] .'_value'];
+        $copy['title'] = t('@label (!name) - Allowed values', array('@label' => t($field['widget']['label']), '!name' => $field['field_name']));
+        $copy['filter']['handler'] = 'content_handler_filter_many_to_one';
+        unset($copy['field'], $copy['argument'], $copy['sort']);
+        $data[$table_alias][$field['field_name'] .'_value_many_to_one'] = $copy;
+        // Argument : swap the handler to the 'many to one' operator.
+        $data[$table_alias][$field['field_name'] .'_value']['argument']['handler'] = 'content_handler_argument_many_to_one';
+        return $data;
+      }
+  }
+}
+
+/**
+ * Implementation of hook_field().
+ */
+function postnummer_field($op, &$node, $field, &$items, $teaser, $page) {
+  switch ($op) {
+    case 'validate':
+      // 'validate' op copied verbatim from text.module
+      // TODO: Figure out what's going on here.
+      $allowed_values = content_allowed_values($field);
+      if (is_array($items)) {
+        foreach ($items as $delta => $item) {
+          $error_element = isset($item['_error_element']) ? $item['_error_element'] : '';
+          if (is_array($item) && isset($item['_error_element'])) unset($item['_error_element']);
+          if (!empty($item['value'])) {
+            if (count($allowed_values) && !array_key_exists($item['value'], $allowed_values)) {
+              form_set_error($error_element, t('%name: illegal value.', array('%name' => t($field['widget']['label']))));
+            }
+            if (!empty($field['max_length']) && drupal_strlen($item['value']) > $field['max_length']) {
+              form_set_error($error_element, t('%name: the value may not be longer than %max characters.', array('%name' => $field['widget']['label'], '%max' => $field['max_length'])));
+            }
+          }
+        }
+      }
+      return $items;
+
+    case 'sanitize':
+      foreach ($items as $delta => $item) {
+        if (!empty($field['text_processing'])) {
+          $check = is_null($node) || (isset($node->build_mode) && $node->build_mode == NODE_BUILD_PREVIEW);
+          $text = isset($item['value']) ? check_markup($item['value'], $item['format'], $check) : '';
+        }
+        else {
+          $text = check_plain($item['value']);
+        }
+        $items[$delta]['safe'] = $text;
+      }
+  }
+}
+
+/**
+ * Implementation of hook_content_is_empty().
+ */
+function postnummer_content_is_empty($item, $field) {
+  if (empty($item['value']) && (string)$item['value'] !== '0') {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function postnummer_field_formatter_info() {
+  return array(
+    'default' => array(
+      'label' => t('Default'),
+      'field types' => array('postnummer'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+    'code_only' => array(
+      'label' => t('Postal code only'),
+      'field types' => array('postnummer'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+    'city_only' => array(
+      'label' => t('City name only'),
+      'field types' => array('postnummer'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+  );
+}
+
+/**
+ * Theme function for 'default' text field formatter.
+ */
+function theme_postnummer_formatter_default($element) {
+  return ($allowed =_postnummer_allowed_values($element)) ? $allowed : $element['#item']['safe'];
+}
+
+/**
+ * Theme function for 'plain' text field formatter.
+ */
+function theme_postnummer_formatter_code_only($element) {
+  return ($allowed =_postnummer_allowed_values($element)) ? $allowed : strip_tags($element['#item']['safe']);
+}
+
+/**
+ * Theme function for 'trimmed' text field formatter.
+ */
+function theme_postnummer_formatter_city_only($element) {
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  return ($allowed =_postnummer_allowed_values($element)) ? $allowed : node_teaser($element['#item']['safe'], $field['text_processing'] ? $element['#item']['format'] : NULL);
+}
+
+function _postnummer_allowed_values($element) {
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  if (($allowed_values = content_allowed_values($field)) && isset($allowed_values[$element['#item']['value']])) {
+    return $allowed_values[$element['#item']['value']];
+  }
+}
+
+/**
+ * Implementation of hook_widget_info().
+ *
+ * Here we indicate that the content module will handle
+ * the default value and multiple values for these widgets.
+ *
+ * Callbacks can be omitted if default handing is used.
+ * They're included here just so this module can be used
+ * as an example for custom modules that might do things
+ * differently.
+ */
+function postnummer_widget_info() {
+  return array(
+    'postnummer_textfield' => array(
+      'label' => t('Text field with autocomplete'),
+      'field types' => array('postnummer'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array(
+        'default value' => CONTENT_CALLBACK_DEFAULT,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of FAPI hook_elements().
+ *
+ * Any FAPI callbacks needed for individual widgets can be declared here,
+ * and the element will be passed to those callbacks for processing.
+ *
+ * Drupal will automatically theme the element using a theme with
+ * the same name as the hook_elements key.
+ *
+ * Autocomplete_path is not used by text_widget but other widgets can use it
+ * (see nodereference and userreference).
+ */
+function postnummer_elements() {
+  return array(
+    'postnummer_textfield' => array(
+      '#input' => TRUE,
+      '#columns' => array('value'), '#delta' => 0,
+      '#process' => array('postnummer_textfield_process'),
+      '#autocomplete_path' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_widget_settings().
+ */
+function postnummer_widget_settings($op, $widget) {
+  switch ($op) {
+    case 'form':
+      $form = array();
+      $size = (isset($widget['size']) && is_numeric($widget['size'])) ? $widget['size'] : 60;
+      $form['rows'] = array('#type' => 'hidden', '#value' => $rows);
+      $form['size'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Size of textfield'),
+        '#default_value' => $size,
+        '#element_validate' => array('_postnummer_widget_settings_size_validate'),
+        '#required' => TRUE,
+      );
+      return $form;
+
+    case 'save':
+      return array('rows', 'size');
+  }
+}
+
+function _postnummer_widget_settings_size_validate($element, &$form_state) {
+  $value = $form_state['values']['size'];
+  if (!is_numeric($value) || intval($value) != $value || $value <= 0) {
+    form_error($element, t('"Size" must be a positive integer.'));
+  }
+}
+
+/**
+ * Implementation of hook_widget().
+ *
+ * Attach a single form element to the form. It will be built out and
+ * validated in the callback(s) listed in hook_elements. We build it
+ * out in the callbacks rather than here in hook_widget so it can be
+ * plugged into any module that can provide it with valid
+ * $field information.
+ *
+ * Content module will set the weight, field name and delta values
+ * for each form element. This is a change from earlier CCK versions
+ * where the widget managed its own multiple values.
+ *
+ * If there are multiple values for this field, the content module will
+ * call this function as many times as needed.
+ *
+ * @param $form
+ *   the entire form array, $form['#node'] holds node information
+ * @param $form_state
+ *   the form_state, $form_state['values'][$field['field_name']]
+ *   holds the field's form values.
+ * @param $field
+ *   the field array
+ * @param $items
+ *   array of default values for this field
+ * @param $delta
+ *   the order of this item in the array of subelements (0, 1, 2, etc)
+ *
+ * @return
+ *   the form item for a single element for this field
+ */
+function postnummer_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  $element = array(
+    '#type' => $field['widget']['type'],
+    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+  );
+  return $element;
+}
+
+/**
+ * Process an individual element.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ *
+ * The $fields array is in $form['#field_info'][$element['#field_name']].
+ */
+function postnummer_textfield_process($element, $edit, $form_state, $form) {
+  $field = $form['#field_info'][$element['#field_name']];
+  $field_key = $element['#columns'][0];
+  $delta = $element['#delta'];
+  $element[$field_key] = array(
+    '#type' => 'textfield',
+    '#default_value' => isset($element['#value'][$field_key]) ? $element['#value'][$field_key] : NULL,
+    '#autocomplete_path' => $element['#autocomplete_path'],
+    '#size' => !empty($field['widget']['size']) ? $field['widget']['size'] : 60,
+    '#attributes' => array('class' => 'text'),
+    // The following values were set by the content module and need
+    // to be passed down to the nested element.
+    '#title' => $element['#title'],
+    '#description' => $element['#description'],
+    '#required' => $element['#required'],
+    '#field_name' => $element['#field_name'],
+    '#type_name' => $element['#type_name'],
+    '#delta' => $element['#delta'],
+    '#columns' => $element['#columns'],
+  );
+
+  $element[$field_key]['#maxlength'] = !empty($field['max_length']) ? $field['max_length'] : NULL;
+
+  if (!empty($field['text_processing'])) {
+    $filter_key = $element['#columns'][1];
+    $format = isset($element['#value'][$filter_key]) ? $element['#value'][$filter_key] : FILTER_FORMAT_DEFAULT;
+    $parents = array_merge($element['#parents'] , array($filter_key));
+    $element[$filter_key] = filter_form($format, 1, $parents);
+  }
+
+  // Used so that hook_field('validate') knows where to flag an error.
+  $element['_error_element'] = array(
+    '#type' => 'value',
+    '#value' => implode('][', array_merge($element['#parents'], array($field_key))),
+  );
+
+  return $element;
+}
+
+/**
+ * FAPI theme for an individual text elements.
+ *
+ * The textfield or textarea is already rendered by the
+ * textfield or textarea themes and the html output
+ * lives in $element['#children']. Override this theme to
+ * make custom changes to the output.
+ *
+ * $element['#field_name'] contains the field name
+ * $element['#delta]  is the position of this element in the group
+ */
+function theme_postnummer_textfield($element) {
+  return $element['#children'];
+}
+
