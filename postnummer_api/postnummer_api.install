@@ -2,7 +2,7 @@
 // $Id$
 
 /**
- * @file
+ * @file postnummer_api.install
  * Scaffolding example module's install and uninstall code.
  */
 
@@ -10,10 +10,10 @@
 /**
  * Implementation of hook_install().
  */
-function postnumre_install() {
-  drupal_install_schema('postnumre');
+function postnummer_api_install() {
+  drupal_install_schema('postnummer_api');
 
-  $postnumre = _postnumre_load_csv();
+  $postnumre = _postnummer_api_load_csv();
   foreach ($postnumre as $number => $data) {
     $record = array(
       'code' => $number,
@@ -29,7 +29,7 @@ function postnumre_install() {
 /**
  * Implementation of hook_schema().
  */
-function postnumre_schema() {
+function postnummer_api_schema() {
   $schema = array();
   $schema['postnumre'] = array(
     'description' => t('Danish postal codes.'),
@@ -82,7 +82,7 @@ function postnumre_schema() {
 /**
  * Implementation of hook_uninstall().
  */
-function postnumre_uninstall() {
+function postnummer_api_uninstall() {
   drupal_uninstall_schema('postnumre');
 }
 
@@ -92,8 +92,8 @@ function postnumre_uninstall() {
  * @return array
  *    A neat nested array of postal codes for the whole Kingdom of Denmark.
  */
-function _postnumre_load_csv() {
-  $file = fopen(drupal_get_path('module', 'postnumre') . '/postnumre.csv', 'r');
+function _postnummer_api_load_csv() {
+  $file = fopen(realpath(dirname(__FILE__)) . '/postnummer_liste.csv', 'r');
 
   $headers = fgetcsv($file, 100);
   $rows = array();

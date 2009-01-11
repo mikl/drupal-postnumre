@@ -7,7 +7,7 @@ define('POSTNUMRE_GREENLAND', 2);
 define('POSTNUMRE_FAROE', 3);
 
 /**
- * @file postnumre.module
+ * @file postnummer_api.module
  * Helper module for Danish postal codes.
  *
  * Providing a few functions and an AHAH callback for dealing with
@@ -17,10 +17,10 @@ define('POSTNUMRE_FAROE', 3);
 /**
  * Implementation of hook_menu().
  */
-function postnumre_menu() {
+function postnummer_api_menu() {
   $items = array();
   $items['postnumre/js'] = array(
-    'page callback' => 'postnumre_search_js',
+    'page callback' => 'postnummer_api_search_js',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
   );
@@ -33,10 +33,10 @@ function postnumre_menu() {
  * @param string $input
  *    The search string
  */
-function postnumre_search_js($input) {
+function postnummer_api_search_js($input) {
   $matches = array();
 
-  foreach(postnumre_freeform_search($input) as $match) {
+  foreach(postnummer_api_freeform_search($input) as $match) {
     $label = $match['code'] . ' ' . $match['city'];
     $matches[$label] = $label;
   }
@@ -56,8 +56,8 @@ function postnumre_search_js($input) {
  * @return array
  *    The search results, possibly an empty array.
  */
-function postnumre_freeform_search($keys, $countries=NULL, $limit=10) {
-  $where = _postnumre_countries_where($countries);
+function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
+  $where = _postnummer_api_countries_where($countries);
   $results = array();
 
   if (is_numeric($keys) && (strlen($keys) > 1) && (strlen($keys) < 5)) {
@@ -94,7 +94,7 @@ function postnumre_freeform_search($keys, $countries=NULL, $limit=10) {
  * @return mixed object|bool
  *    If a code was found, the postal code object, if not boolean FALSE.
  */
-function postnumre_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) {
+function postnummer_api_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) {
   if (is_numeric($input)) {
     $query = db_query("SELECT * FROM {postnumre} WHERE CODE = %d LIMIT 1", $input);
     if ($query) {
@@ -120,8 +120,8 @@ function postnumre_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) 
  * @return string
  *    SQL WHERE clause ready to be used.
  */
-function _postnumre_countries_where($countries=NULL, $append_and=TRUE) {
-  $default_countries = variable_get('postnumre_countries', array(POSTNUMRE_DENMARK));
+function _postnummer_api_countries_where($countries=NULL, $append_and=TRUE) {
+  $default_countries = variable_get('postnummer_api_countries', array(POSTNUMRE_DENMARK));
   $where = '';
 
   // Remove values not in the valid range.
