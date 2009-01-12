@@ -1,10 +1,4 @@
-<?php
-// $Id$
-
-// Codes used for countries in the original data.
-define('POSTNUMRE_DENMARK', 1);
-define('POSTNUMRE_GREENLAND', 2);
-define('POSTNUMRE_FAROE', 3);
+<?php // $Id$
 
 /**
  * @file postnummer_api.module
@@ -13,6 +7,11 @@ define('POSTNUMRE_FAROE', 3);
  * Providing a few functions and an AHAH callback for dealing with
  * the 1400+ postal codes used in the Kingdom of Denmark.
  */
+
+// Codes used for countries in the original data.
+define('POSTNUMRE_DENMARK', 1);
+define('POSTNUMRE_GREENLAND', 2);
+define('POSTNUMRE_FAROE', 3);
 
 /**
  * Implementation of hook_menu().
@@ -26,6 +25,36 @@ function postnummer_api_menu() {
   );
   return $items;
 }
+
+/**
+ * Implementation of hook_elements().
+ */
+function postnummer_api_elements() {
+  return array(
+    'postnummer_textfield' => array(
+      '#input' => TRUE,
+      '#element_validate' => array('postnummer_api_postnummer_textfield_validate'),
+      '#autocomplete_path' => 'postnummer/js',
+      '#size' => 16,
+      '#maxlength' => 32,
+      '#columns' => array('value'), '#delta' => 0,
+      '#theme' => 'textfield',
+    ),
+  );
+}
+
+/**
+ * Validate input to our field element.
+ */
+function postnummer_api_postnummer_textfield_validate($form, &$form_state) {
+  $input = $form_state['values'][$form['#name']];
+  $input_code = trim(substr($input, 0, 4));
+  $match = postnummer_api_validate_code($input_code);
+  if (!$match) {
+    form_set_error($form['#name'], t('%code is not a valid Danish postal code', array('%code' => $input_code)));
+  }
+}
+
 
 /**
  * Autocomplete page callback for postal code search.
@@ -70,7 +99,7 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
       $code = $groups[1];
       $city = $groups[2];
       $query = db_query("SELECT * FROM {postnumre} $where code LIKE
-        '%d%%' LIMIT %d", $city, $limit);
+        '%d%%' LIMIT %d", $code, $limit);
     }
     else {
       $query = db_query("SELECT * FROM {postnumre} $where LOWER(city)
@@ -96,7 +125,7 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
  */
 function postnummer_api_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) {
   if (is_numeric($input)) {
-    $query = db_query("SELECT * FROM {postnumre} WHERE CODE = %d LIMIT 1", $input);
+    $query = db_query("SELECT * FROM {postnumre} WHERE code = %d LIMIT 1", $input);
     if ($query) {
       return db_fetch_object($query);
     }
