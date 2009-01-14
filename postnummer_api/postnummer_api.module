@@ -47,11 +47,13 @@ function postnummer_api_elements() {
  * Validate input to our field element.
  */
 function postnummer_api_postnummer_textfield_validate($form, &$form_state) {
-  $input = $form_state['values'][$form['#name']];
-  $input_code = trim(substr($input, 0, 4));
-  $match = postnummer_api_validate_code($input_code);
-  if (!$match) {
-    form_set_error($form['#name'], t('%code is not a valid Danish postal code', array('%code' => $input_code)));
+  // Don't try to validate CCK fields.
+  if (!isset($form['#field_name'])) {
+    $input = $form_state['values'][$form['#name']];
+    $match = postnummer_api_freeform_search($input);
+    if (!$match) {
+      form_set_error($form['#name'], t('%code is not a valid Danish postal code', array('%code' => $value)));
+    }
   }
 }
 
@@ -114,7 +116,7 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
 }
 
 /**
- * Validate up a postal code.
+ * Validate a postal code.
  *
  * @param mixed $input
  *    Input, typically string or int.

@@ -6,6 +6,23 @@
  */
 
 /**
+ * Implementation of hook_theme().
+ */
+function postnummer_theme() {
+  return array(
+    'postnummer_formatter_default' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'postnummer_formatter_code_only' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'postnummer_formatter_city_only' => array(
+      'arguments' => array('element' => NULL),
+    ),
+  );
+}
+
+/**
  * Implementation of hook_field_info().
  */
 function postnummer_field_info() {
@@ -87,35 +104,21 @@ function postnummer_field_settings($op, $field) {
 function postnummer_field($op, &$node, $field, &$items, $teaser, $page) {
   switch ($op) {
     case 'validate':
-      // 'validate' op copied verbatim from text.module
-      // TODO: Figure out what's going on here.
-      $allowed_values = content_allowed_values($field);
-      if (is_array($items)) {
-        foreach ($items as $delta => $item) {
-          $error_element = isset($item['_error_element']) ? $item['_error_element'] : '';
-          if (is_array($item) && isset($item['_error_element'])) unset($item['_error_element']);
-          if (!empty($item['value'])) {
-            if (count($allowed_values) && !array_key_exists($item['value'], $allowed_values)) {
-              form_set_error($error_element, t('%name: illegal value.', array('%name' => t($field['widget']['label']))));
-            }
-            if (!empty($field['max_length']) && drupal_strlen($item['value']) > $field['max_length']) {
-              form_set_error($error_element, t('%name: the value may not be longer than %max characters.', array('%name' => $field['widget']['label'], '%max' => $field['max_length'])));
-            }
-          }
+      $valid_items = array();
+      foreach ($items as $delta => $item) {
+        $matches = postnummer_api_freeform_search($item);
+        if (count($matches) == 1) {
+          $valid_items[$delta] = array('code' => $matches[0]['code'],
+                                       'city' => $matches[0]['city']);
         }
       }
-      return $items;
+      $items = $valid_items;
+      $node->$field['field_name'] = $valid_items;
+      break;
 
     case 'sanitize':
       foreach ($items as $delta => $item) {
-        if (!empty($field['text_processing'])) {
-          $check = is_null($node) || (isset($node->build_mode) && $node->build_mode == NODE_BUILD_PREVIEW);
-          $text = isset($item['value']) ? check_markup($item['value'], $item['format'], $check) : '';
-        }
-        else {
-          $text = check_plain($item['value']);
-        }
-        $items[$delta]['safe'] = $text;
+        $items[$delta]['safe'] = check_plain($item['code'] . ' ' . $item['city']);
       }
   }
 }
@@ -154,33 +157,26 @@ function postnummer_field_formatter_info() {
 }
 
 /**
- * Theme function for 'default' text field formatter.
+ * Theme function for 'default' field formatter.
  */
 function theme_postnummer_formatter_default($element) {
-  return ($allowed =_postnummer_allowed_values($element)) ? $allowed : $element['#item']['safe'];
+  return $element['#item']['safe'];
 }
 
 /**
- * Theme function for 'plain' text field formatter.
+ * Theme function for 'code_only' field formatter.
  */
 function theme_postnummer_formatter_code_only($element) {
-  return ($allowed =_postnummer_allowed_values($element)) ? $allowed : strip_tags($element['#item']['safe']);
+  return check_plain($element['#item']['code']);
 }
 
 /**
- * Theme function for 'trimmed' text field formatter.
+ * Theme function for 'city_only' field formatter.
  */
 function theme_postnummer_formatter_city_only($element) {
-  $field = content_fields($element['#field_name'], $element['#type_name']);
-  return ($allowed =_postnummer_allowed_values($element)) ? $allowed : node_teaser($element['#item']['safe'], $field['text_processing'] ? $element['#item']['format'] : NULL);
+  return check_plain($element['#item']['city']);
 }
 
-function _postnummer_allowed_values($element) {
-  $field = content_fields($element['#field_name'], $element['#type_name']);
-  if (($allowed_values = content_allowed_values($field)) && isset($allowed_values[$element['#item']['value']])) {
-    return $allowed_values[$element['#item']['value']];
-  }
-}
 
 /**
  * Implementation of hook_widget_info().
@@ -202,29 +198,6 @@ function postnummer_widget_info() {
       'callbacks' => array(
         'default value' => CONTENT_CALLBACK_DEFAULT,
       ),
-    ),
-  );
-}
-
-/**
- * Implementation of FAPI hook_elements().
- *
- * Any FAPI callbacks needed for individual widgets can be declared here,
- * and the element will be passed to those callbacks for processing.
- *
- * Drupal will automatically theme the element using a theme with
- * the same name as the hook_elements key.
- *
- * Autocomplete_path is not used by text_widget but other widgets can use it
- * (see nodereference and userreference).
- */
-function postnummer_elements() {
-  return array(
-    'postnummer_textfield' => array(
-      '#input' => TRUE,
-      '#columns' => array('value'), '#delta' => 0,
-      '#process' => array('postnummer_textfield_process'),
-      '#autocomplete_path' => FALSE,
     ),
   );
 }
@@ -293,70 +266,7 @@ function _postnummer_widget_settings_size_validate($element, &$form_state) {
 function postnummer_widget(&$form, &$form_state, $field, $items, $delta = 0) {
   $element = array(
     '#type' => $field['widget']['type'],
-    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+    '#default_value' => isset($items[$delta]) ? implode(' ', $items[$delta]) : '',
   );
   return $element;
 }
-
-/**
- * Process an individual element.
- *
- * Build the form element. When creating a form using FAPI #process,
- * note that $element['#value'] is already set.
- *
- * The $fields array is in $form['#field_info'][$element['#field_name']].
- */
-function postnummer_textfield_process($element, $edit, $form_state, $form) {
-  $field = $form['#field_info'][$element['#field_name']];
-  $field_key = $element['#columns'][0];
-  $delta = $element['#delta'];
-  $element[$field_key] = array(
-    '#type' => 'textfield',
-    '#default_value' => isset($element['#value'][$field_key]) ? $element['#value'][$field_key] : NULL,
-    '#autocomplete_path' => $element['#autocomplete_path'],
-    '#size' => !empty($field['widget']['size']) ? $field['widget']['size'] : 60,
-    '#attributes' => array('class' => 'text'),
-    // The following values were set by the content module and need
-    // to be passed down to the nested element.
-    '#title' => $element['#title'],
-    '#description' => $element['#description'],
-    '#required' => $element['#required'],
-    '#field_name' => $element['#field_name'],
-    '#type_name' => $element['#type_name'],
-    '#delta' => $element['#delta'],
-    '#columns' => $element['#columns'],
-  );
-
-  $element[$field_key]['#maxlength'] = !empty($field['max_length']) ? $field['max_length'] : NULL;
-
-  if (!empty($field['text_processing'])) {
-    $filter_key = $element['#columns'][1];
-    $format = isset($element['#value'][$filter_key]) ? $element['#value'][$filter_key] : FILTER_FORMAT_DEFAULT;
-    $parents = array_merge($element['#parents'] , array($filter_key));
-    $element[$filter_key] = filter_form($format, 1, $parents);
-  }
-
-  // Used so that hook_field('validate') knows where to flag an error.
-  $element['_error_element'] = array(
-    '#type' => 'value',
-    '#value' => implode('][', array_merge($element['#parents'], array($field_key))),
-  );
-
-  return $element;
-}
-
-/**
- * FAPI theme for an individual text elements.
- *
- * The textfield or textarea is already rendered by the
- * textfield or textarea themes and the html output
- * lives in $element['#children']. Override this theme to
- * make custom changes to the output.
- *
- * $element['#field_name'] contains the field name
- * $element['#delta]  is the position of this element in the group
- */
-function theme_postnummer_textfield($element) {
-  return $element['#children'];
-}
-
