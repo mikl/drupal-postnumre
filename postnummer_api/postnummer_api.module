@@ -27,38 +27,6 @@ function postnummer_api_menu() {
 }
 
 /**
- * Implementation of hook_elements().
- */
-function postnummer_api_elements() {
-  return array(
-    'postnummer_textfield' => array(
-      '#input' => TRUE,
-      '#element_validate' => array('postnummer_api_postnummer_textfield_validate'),
-      '#autocomplete_path' => 'postnummer/js',
-      '#size' => 16,
-      '#maxlength' => 32,
-      '#columns' => array('value'), '#delta' => 0,
-      '#theme' => 'textfield',
-    ),
-  );
-}
-
-/**
- * Validate input to our field element.
- */
-function postnummer_api_postnummer_textfield_validate($form, &$form_state) {
-  // Don't try to validate CCK fields.
-  if (!isset($form['#field_name'])) {
-    $input = $form_state['values'][$form['#name']];
-    $match = postnummer_api_freeform_search($input);
-    if (!$match) {
-      form_set_error($form['#name'], t('%code is not a valid Danish postal code', array('%code' => $value)));
-    }
-  }
-}
-
-
-/**
  * Autocomplete page callback for postal code search.
  *
  * @param string $input

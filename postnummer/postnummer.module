@@ -19,6 +19,9 @@ function postnummer_theme() {
     'postnummer_formatter_city_only' => array(
       'arguments' => array('element' => NULL),
     ),
+    'postnummer_autocomplete' => array(
+      'arguments' => array('element' => NULL),
+    ),
   );
 }
 
@@ -75,26 +78,6 @@ function postnummer_field_settings($op, $field) {
         'sortable' => TRUE
       );
       return $columns;
-
-    case 'views data':
-      // 'views data' op copied verbatim from text.module
-      // TODO: Figure out what's going on here.
-      $allowed_values = content_allowed_values($field);
-      if (count($allowed_values)) {
-        $data = content_views_field_views_data($field);
-        $db_info = content_database_info($field);
-        $table_alias = content_views_tablename($field);
-
-        // Filter: Add a 'many to one' filter.
-        $copy = $data[$table_alias][$field['field_name'] .'_value'];
-        $copy['title'] = t('@label (!name) - Allowed values', array('@label' => t($field['widget']['label']), '!name' => $field['field_name']));
-        $copy['filter']['handler'] = 'content_handler_filter_many_to_one';
-        unset($copy['field'], $copy['argument'], $copy['sort']);
-        $data[$table_alias][$field['field_name'] .'_value_many_to_one'] = $copy;
-        // Argument : swap the handler to the 'many to one' operator.
-        $data[$table_alias][$field['field_name'] .'_value']['argument']['handler'] = 'content_handler_argument_many_to_one';
-        return $data;
-      }
   }
 }
 
@@ -103,23 +86,11 @@ function postnummer_field_settings($op, $field) {
  */
 function postnummer_field($op, &$node, $field, &$items, $teaser, $page) {
   switch ($op) {
-    case 'validate':
-      $valid_items = array();
-      foreach ($items as $delta => $item) {
-        $matches = postnummer_api_freeform_search($item);
-        if (count($matches) == 1) {
-          $valid_items[$delta] = array('code' => $matches[0]['code'],
-                                       'city' => $matches[0]['city']);
-        }
-      }
-      $items = $valid_items;
-      $node->$field['field_name'] = $valid_items;
-      break;
-
     case 'sanitize':
       foreach ($items as $delta => $item) {
         $items[$delta]['safe'] = check_plain($item['code'] . ' ' . $item['city']);
       }
+      break;
   }
 }
 
@@ -127,7 +98,7 @@ function postnummer_field($op, &$node, $field, &$items, $teaser, $page) {
  * Implementation of hook_content_is_empty().
  */
 function postnummer_content_is_empty($item, $field) {
-  if (empty($item['value']) && (string)$item['value'] !== '0') {
+  if (empty($item['code']) || !is_numeric($item['code'])) {
     return TRUE;
   }
   return FALSE;
@@ -191,12 +162,12 @@ function theme_postnummer_formatter_city_only($element) {
  */
 function postnummer_widget_info() {
   return array(
-    'postnummer_textfield' => array(
+    'postnummer_autocomplete' => array(
       'label' => t('Text field with autocomplete'),
       'field types' => array('postnummer'),
       'multiple values' => CONTENT_HANDLE_CORE,
       'callbacks' => array(
-        'default value' => CONTENT_CALLBACK_DEFAULT,
+        'default value' => CONTENT_CALLBACK_NONE,
       ),
     ),
   );
@@ -266,7 +237,106 @@ function _postnummer_widget_settings_size_validate($element, &$form_state) {
 function postnummer_widget(&$form, &$form_state, $field, $items, $delta = 0) {
   $element = array(
     '#type' => $field['widget']['type'],
-    '#default_value' => isset($items[$delta]) ? implode(' ', $items[$delta]) : '',
+    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+    '#title' => $field['widget']['label'],
+    '#weight' => $field['widget']['weight'],
+    '#description' => $field['widget']['description'],
+    '#required' => $field['required'],
+    '#field' => $field,
   );
   return $element;
 }
+
+/**
+ * Implementation of FAPI hook_elements().
+ */
+function postnummer_elements() {
+  return array(
+    'postnummer_autocomplete' => array(
+      '#input' => TRUE,
+      '#columns' => array('code'),
+      '#process' => array('postnummer_autocomplete_process'),
+      '#autocomplete_path' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Process an individual element.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ * The $fields array is in $form['#field_info'][$element['#field_name']].
+ */
+function postnummer_autocomplete_process($element, $edit, $form_state, $form) {
+  $field = $form['#field_info'][$element['#field_name']];
+  $delta = $element['#delta'];
+
+  $textfield_element = array(
+    '#type' => 'textfield',
+    '#maxlength' => '255',
+    '#default_value' => isset($element['#value']['code']) ? $element['#value']['code'] : NULL,
+    '#autocomplete_path' => 'postnummer/js',//. $element['#field_name'],
+    // The following values were set by the content module and need
+    // to be passed down to the nested element.
+    '#title' => $element['#title'],
+    '#required' => $element['#required'],
+    '#description' => $element['#description'],
+    '#field_name' => $element['#field_name'],
+    '#type_name' => $element['#type_name'],
+    '#delta' => $element['#delta'],
+    '#columns' => $element['#columns'],
+  );
+
+
+  // Add our own validation step
+  if (empty($element['#element_validate'])) {
+    $element['#element_validate'] = array();
+  }
+  array_unshift($element['#element_validate'], 'postnummer_autocomplete_validate');
+
+  // Used so that hook_field('validate') knows where to flag an error.
+  $element['_error_element'] = array(
+    '#type' => 'value',
+    // Wrapping the element around a text_textfield element creates a
+    // nested element, so the final id will look like 'field-name-0-nid-nid'.
+    '#value' => implode('][', array_merge($element['#parents'], array('postnummer', 'postnummer'))),
+  );
+
+  $element['postnummer_search'] = $textfield_element;
+  return $element;
+}
+
+/**
+ * Validate input to our field element.
+ */
+function postnummer_autocomplete_validate($element, &$form_state) {
+  $field_key  = 'postnummer_search';
+  $field_name = $element['#field_name'];
+  $delta = $element['#delta'];
+  $value = $element['#value'][$field_key];
+  if (!empty($value)) {
+    $matches = postnummer_api_freeform_search($value);
+    if (!empty($matches)) {
+      // Completely overwriting the values is a bit ugly, but it works.
+      $form_state['values'][$field_name][$delta] = array(
+        'code' => $matches[0]['code'],
+        'city' => $matches[0]['city']
+      );
+    }
+    else {
+      form_error($element[$field_key],
+        t('%code is not a valid Danish postal code',
+        array('%code' => $value))
+      );
+    }
+  }
+}
+
+/**
+ * FAPI theme for an individual text elements.
+ */
+function theme_postnummer_autocomplete($element) {
+  return $element['#children'];
+}
+
