@@ -1,9 +1,9 @@
-Postnumre for Drupal
-====================
+Postnummer for Drupal
+=====================
 
-A small collection of modules for dealing with danish postal codes.
+A small collection of modules for dealing with Danish postal codes.
 
-Copyright (c) 2008 Mikkel Hoegh <mikkel@hoegh.org>
+Copyright (c) 2008-2009 Mikkel Hoegh <mikkel@hoegh.org>
 
 Why this module?
 ----------------
@@ -16,6 +16,5 @@ integrate with both of these in time.
 
 The main reason for creating this module is a very basic need for having
 valid postal codes in the database and a user friendly interface for them,
-so the primary feature is an AHAH-callback and a validation function that
-can be used by other modules.
-
+so the primary feature is an Javascript-callback and a validation function
+that can be used by other modules.
