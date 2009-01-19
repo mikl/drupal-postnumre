@@ -286,6 +286,7 @@ function postnummer_autocomplete_process($element, $edit, $form_state, $form) {
     '#type_name' => $element['#type_name'],
     '#delta' => $element['#delta'],
     '#columns' => $element['#columns'],
+    '#size' => $element['#size'],
   );
 
 
