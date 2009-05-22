@@ -270,9 +270,6 @@ function postnummer_elements() {
  * The $fields array is in $form['#field_info'][$element['#field_name']].
  */
 function postnummer_autocomplete_process($element, $edit, $form_state, $form) {
-  $field = $form['#field_info'][$element['#field_name']];
-  $delta = $element['#delta'];
-
   $textfield_element = array(
     '#type' => 'textfield',
     '#maxlength' => '255',
@@ -283,11 +280,11 @@ function postnummer_autocomplete_process($element, $edit, $form_state, $form) {
     '#title' => $element['#title'],
     '#required' => $element['#required'],
     '#description' => $element['#description'],
-    '#field_name' => $element['#field_name'],
-    '#type_name' => $element['#type_name'],
-    '#delta' => $element['#delta'],
+    '#field_name' => (isset($element['#field_name'])) ? $element['#field_name']: NULL,
+    '#type_name' => (isset($element['#type_name'])) ? $element['#type_name'] : NULL,
+    '#delta' => (isset($element['#delta'])) ? $element['#delta'] : NULL,
     '#columns' => $element['#columns'],
-    '#size' => ($element['#size'] > 1) ? $element['#size'] : 20,
+    '#size' => (isset($element['#size']) && $element['#size'] > 1) ? $element['#size'] : 20,
   );
 
 
