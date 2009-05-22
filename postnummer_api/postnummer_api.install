@@ -15,15 +15,21 @@ function postnummer_api_install() {
 
   $postnumre = _postnummer_api_load_csv();
   foreach ($postnumre as $number => $data) {
-    $record = array(
+    db_query("INSERT INTO {postnummer_list} (code, city, street, company, country) VALUES (%d, '%s', '%s', '%s', %d);", array(
       'code' => $number,
       'city' => $data['Bynavn'],
-      'street' => $data['Gade'],
-      'company' => $data['Firma'],
+      'street' => (isset($data['Gade'])) ? $data['Gade'] : '',
+      'company' => (isset($data['Firma'])) ? $data['Firma'] : '',
       'country' => $data['Land']
-    );
-    drupal_write_record('postnumre', $record);
+    ));
   }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function postnummer_api_uninstall() {
+  drupal_uninstall_schema('postnummer_api');
 }
 
 /**
@@ -31,7 +37,7 @@ function postnummer_api_install() {
  */
 function postnummer_api_schema() {
   $schema = array();
-  $schema['postnumre'] = array(
+  $schema['postnummer_list'] = array(
     'description' => t('Danish postal codes.'),
     'fields' => array(
       'code' => array(
@@ -76,14 +82,6 @@ function postnummer_api_schema() {
     ),
   );
   return $schema;
-}
-
-
-/**
- * Implementation of hook_uninstall().
- */
-function postnummer_api_uninstall() {
-  drupal_uninstall_schema('postnumre');
 }
 
 /**

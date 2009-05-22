@@ -60,7 +60,7 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
   $results = array();
 
   if (is_numeric($keys) && (strlen($keys) > 1) && (strlen($keys) < 5)) {
-    $query = db_query("SELECT * FROM {postnumre} $where code LIKE '%d%%'
+    $query = db_query("SELECT * FROM {postnummer_list} $where code LIKE '%d%%'
       LIMIT %d", $keys, $limit);
   }
   elseif (strlen($keys) > 2) {
@@ -68,11 +68,11 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
     if (preg_match('/^(\d{3,4})\s*(\w*)/', trim($keys), $groups)) {
       $code = $groups[1];
       $city = $groups[2];
-      $query = db_query("SELECT * FROM {postnumre} $where code LIKE
+      $query = db_query("SELECT * FROM {postnummer_list} $where code LIKE
         '%d%%' LIMIT %d", $code, $limit);
     }
     else {
-      $query = db_query("SELECT * FROM {postnumre} $where LOWER(city)
+      $query = db_query("SELECT * FROM {postnummer_list} $where LOWER(city)
         LIKE '%s%%' LIMIT %d", $keys, $limit);
     }
   }
@@ -95,7 +95,7 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
  */
 function postnummer_api_validate_code($input, $restrict_country = POSTNUMRE_DENMARK) {
   if (is_numeric($input)) {
-    $query = db_query("SELECT * FROM {postnumre} WHERE code = %d LIMIT 1", $input);
+    $query = db_query("SELECT * FROM {postnummer_list} WHERE code = %d LIMIT 1", $input);
     if ($query) {
       return db_fetch_object($query);
     }
