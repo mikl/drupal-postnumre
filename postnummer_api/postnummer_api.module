@@ -77,8 +77,10 @@ function postnummer_api_freeform_search($keys, $countries=NULL, $limit=10) {
     }
   }
 
-  while($row = db_fetch_array($query)) {
-    $results[] = $row;
+  if (isset($query)) {
+    while($row = db_fetch_array($query)) {
+      $results[] = $row;
+    }
   }
   return $results;
 }
